@@ -26,22 +26,28 @@ A production-ready, fully-tested smart contract project built with Hardhat, demo
 This project implements a simple yet robust **Counter** smart contract on Ethereum, showcasing:
 
 - ✅ Clean, secure Solidity code with proper error handling
-- ✅ Comprehensive test coverage (Solidity + TypeScript)
+- ✅ **Access control** with owner-only administrative functions
+- ✅ **Enhanced events** (Increment, Decrement, DataStored, OwnershipTransferred, CounterReset)
+- ✅ Comprehensive test coverage (13 tests: 3 Solidity + 10 TypeScript)
 - ✅ Event-driven architecture for off-chain monitoring
+- ✅ **Full NatSpec documentation** for all functions and events
 - ✅ Production-ready deployment pipeline
 - ✅ Multi-network support (local, Sepolia testnet)
 - ✅ Modern development tooling (Hardhat, Viem, TypeScript)
 
-The Counter contract allows users to increment and decrement a value, with built-in safeguards to prevent underflow errors and emit events for all state changes.
+The Counter contract allows users to increment and decrement a value, with built-in safeguards to prevent underflow errors and emit events for all state changes. The contract includes access control for administrative functions and comprehensive NatSpec documentation.
 
 ## ✨ Features
 
 ### Smart Contract Features
 - **Increment Operations**: Increment counter by 1 or by a custom amount
 - **Decrement Operations**: Decrement counter by 1 or by a custom amount
-- **Safety Checks**: Prevents underflow with `require` statements
-- **Event Emission**: Emits `Increment` and `Decrement` events for all operations
+- **Access Control**: Owner-only functions for administrative tasks (reset, setValue, storeData)
+- **Safety Checks**: Prevents underflow and overflow with `require` statements
+- **Event Emission**: Emits enhanced events (`Increment`, `Decrement`, `DataStored`, `OwnershipTransferred`, `CounterReset`) for all operations
 - **Public State**: Counter value is publicly readable
+- **Ownership Management**: Transfer ownership functionality with event tracking
+- **Comprehensive Documentation**: Full NatSpec comments for all functions and events
 
 ### Development Features
 - **Dual Testing Framework**: 
@@ -191,9 +197,14 @@ The project includes comprehensive test coverage:
 ### Test Coverage
 - ✅ Increment functionality (single and by amount)
 - ✅ Decrement functionality (single and by amount)
-- ✅ Event emission verification
+- ✅ Event emission verification (Increment, Decrement, DataStored)
 - ✅ Underflow prevention
 - ✅ State consistency checks
+- ✅ Access control (owner verification)
+- ✅ Owner-only functions (storeData, reset, transferOwnership)
+- ✅ Unauthorized access prevention
+- ✅ Ownership transfer functionality
+- ✅ **Total: 13 tests passing (3 Solidity + 10 TypeScript)**
 
 ## 🚢 Deployment
 
@@ -230,39 +241,64 @@ Output includes:
 
 **State Variables**:
 - `uint public x` - The counter value (publicly readable)
+- `address public owner` - The contract owner address
 
-**Functions**:
-- `inc()` - Increment counter by 1
-- `dec()` - Decrement counter by 1 (reverts if x == 0)
-- `incBy(uint by)` - Increment counter by specified amount
-- `decBy(uint by)` - Decrement counter by specified amount (reverts if x < by)
+**Public Functions**:
+- `inc()` - Increment counter by 1 (anyone can call)
+- `dec()` - Decrement counter by 1 (reverts if x == 0, anyone can call)
+- `incBy(uint by)` - Increment counter by specified amount (anyone can call)
+- `decBy(uint by)` - Decrement counter by specified amount (reverts if x < by, anyone can call)
+- `getValue()` - Get current counter value (view function)
+- `isOwner(address account)` - Check if an address is the owner (view function)
+
+**Owner-Only Functions**:
+- `storeData(string memory data)` - Store data string (owner-only, emits DataStored event)
+- `reset()` - Reset counter to zero (owner-only, emits CounterReset event)
+- `setValue(uint newValue)` - Set counter to specific value (owner-only)
+- `transferOwnership(address newOwner)` - Transfer contract ownership (owner-only, emits OwnershipTransferred event)
 
 **Events**:
-- `Increment(uint by)` - Emitted when counter is incremented
-- `Decrement(uint by)` - Emitted when counter is decremented
+- `Increment(uint indexed by, uint newValue)` - Emitted when counter is incremented (includes new value)
+- `Decrement(uint indexed by, uint newValue)` - Emitted when counter is decremented (includes new value)
+- `DataStored(string indexed data, uint256 timestamp)` - Emitted when owner stores data
+- `OwnershipTransferred(address indexed previousOwner, address indexed newOwner)` - Emitted when ownership changes
+- `CounterReset(uint previousValue)` - Emitted when counter is reset by owner
 
 **Security Features**:
-- Underflow protection via `require` statements
-- Input validation for increment/decrement amounts
+- Access control via `onlyOwner` modifier for administrative functions
+- Underflow and overflow protection via `require` statements
+- Input validation for all function parameters
+- Custom errors (`Unauthorized`, `InvalidInput`) for gas-efficient error handling
+- Zero address checks for ownership transfers
 - Clear error messages for debugging
+- Comprehensive NatSpec documentation
 
 ### Example Usage
 
 ```solidity
-// Deploy contract
+// Deploy contract (deployer becomes owner)
 Counter counter = new Counter();
 
-// Increment by 1
-counter.inc();
-
-// Increment by 10
-counter.incBy(10);
-
-// Decrement by 1
-counter.dec();
+// Public functions (anyone can call)
+counter.inc();              // Increment by 1
+counter.incBy(10);          // Increment by 10
+counter.dec();              // Decrement by 1
+counter.decBy(5);           // Decrement by 5
 
 // Read current value
 uint currentValue = counter.x();
+// or
+uint value = counter.getValue();
+
+// Owner-only functions (only owner can call)
+counter.storeData("Important data");  // Store data
+counter.reset();                      // Reset counter to 0
+counter.setValue(100);                // Set counter to 100
+counter.transferOwnership(newOwner);   // Transfer ownership
+
+// Check ownership
+bool isOwner = counter.isOwner(msg.sender);
+address contractOwner = counter.owner();
 ```
 
 ## 🤝 Contributing

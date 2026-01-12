@@ -14,7 +14,7 @@ describe("Counter", async function () {
       counter.write.inc(),
       counter,
       "Increment",
-      [1n],
+      [1n, 1n], // by, newValue
     );
   });
 
@@ -54,7 +54,7 @@ describe("Counter", async function () {
       counter.write.dec(),
       counter,
       "Decrement",
-      [1n],
+      [1n, 0n], // by, newValue
     );
   });
 
@@ -100,5 +100,92 @@ describe("Counter", async function () {
     }
 
     assert.equal(total, await counter.read.x());
+  });
+
+  it("Should have deployer as owner", async function () {
+    const [deployer] = await viem.getWalletClients();
+    const counter = await viem.deployContract("Counter");
+    
+    const owner = await counter.read.owner();
+    assert.equal(owner.toLowerCase(), deployer.account.address.toLowerCase());
+  });
+
+  it("Should emit DataStored event when owner stores data", async function () {
+    const counter = await viem.deployContract("Counter");
+    const deploymentBlockNumber = await publicClient.getBlockNumber();
+    
+    await counter.write.storeData(["test data"]);
+    
+    const events = await publicClient.getContractEvents({
+      address: counter.address,
+      abi: counter.abi,
+      eventName: "DataStored",
+      fromBlock: deploymentBlockNumber,
+      strict: true,
+    });
+    
+    assert.equal(events.length, 1);
+    // Since data is indexed, it's hashed. We verify the event was emitted with a timestamp
+    assert.ok(events[0].args.timestamp > 0n);
+    // Verify we can access the indexed data (it will be a hash)
+    assert.ok(events[0].args.data !== undefined);
+  });
+
+  it("Should revert when non-owner tries to store data", async function () {
+    const counter = await viem.deployContract("Counter");
+    const [_, nonOwner] = await viem.getWalletClients();
+    
+    await assert.rejects(
+      async () => {
+        await counter.write.storeData(["test data"], {
+          account: nonOwner.account,
+        });
+      },
+      (error: any) => {
+        return error.message.includes("Unauthorized") || error.message.includes("revert");
+      }
+    );
+  });
+
+  it("Should reset counter when owner calls reset", async function () {
+    const counter = await viem.deployContract("Counter");
+    
+    // Increment first
+    await counter.write.inc();
+    await counter.write.incBy([5n]);
+    assert.equal(await counter.read.x(), 6n);
+    
+    // Reset
+    await counter.write.reset();
+    assert.equal(await counter.read.x(), 0n);
+  });
+
+  it("Should allow owner to transfer ownership", async function () {
+    const counter = await viem.deployContract("Counter");
+    const [deployer, newOwner] = await viem.getWalletClients();
+    
+    const initialOwner = await counter.read.owner();
+    assert.equal(initialOwner.toLowerCase(), deployer.account.address.toLowerCase());
+    
+    await counter.write.transferOwnership([newOwner.account.address]);
+    
+    const finalOwner = await counter.read.owner();
+    assert.equal(finalOwner.toLowerCase(), newOwner.account.address.toLowerCase());
+  });
+
+  it("Should revert when non-owner tries to transfer ownership", async function () {
+    const counter = await viem.deployContract("Counter");
+    const [_, nonOwner, anotherAccount] = await viem.getWalletClients();
+    
+    await assert.rejects(
+      async () => {
+        await counter.write.transferOwnership([anotherAccount.account.address], {
+          account: nonOwner.account,
+        });
+      },
+      (error: any) => {
+        return error.message.includes("Unauthorized") || error.message.includes("revert");
+      }
+    );
   });
 });
